@@ -27,6 +27,9 @@ def getConfigFile():
     print("")
     print ("Enter config file:")
     confFile = input(prompt)
+    if (os.path.dirname(confFile) == ''):
+        confFile = os.getcwd() + "\\" + confFile
+
 
 #confFile="C:\Vara\AM&R\scripts\Ref_Scripts\ChargeFileGen\Vara.txt"
 #confFile="C:\Vara\AM&R\scripts\QA_Run\Vara.txt"

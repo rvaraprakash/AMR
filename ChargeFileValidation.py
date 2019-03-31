@@ -24,11 +24,25 @@ def getConfigFile():
     prompt = '> '
     #confFile="C:\Vara\AM&R\scripts\Ref_Scripts\ChargeFileGen\Vara.txt"
     #confFile="ChargeFileConf.txt"
+    print("")
     print ("Enter config file:")
     confFile = input(prompt)
 
 #confFile="C:\Vara\AM&R\scripts\Ref_Scripts\ChargeFileGen\Vara.txt"
 #confFile="C:\Vara\AM&R\scripts\QA_Run\Vara.txt"
+
+def displayInfo():
+    print("################################################################################################")
+    print("## Thanks for using Charge file validation application, developed by Vara(Varaprakash Reddy). ##")
+    print("## This required config file (Ex: Vara.txt) as input parameter with following fields set      ##")
+    print("##                                                                                            ##")
+    print("##   BL_RATED = <Path to BL_RATED csv or xlsx file>                                           ##")
+    print("##   CHARGE_FILES_PAT = < path contains charges files generated from FW>                      ##")
+    print("##   OUTPUT_FILE = < Name of the Excel (xlsx) filename to produce results                     ##")
+    print("##   BILLING_SYS_INFO = < Billing System Info  Reference file from FRD>                       ##")
+    print("################################################################################################")
+
+displayInfo()
 getConfigFile()
 
 OUTPUT_FILE = "ChargeFileValidation.xlsx" ### Default value

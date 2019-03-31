@@ -10,3 +10,5 @@ setup(name="ChargeFileValidation",
       version="0.1",
       description="Validate charge files against BL_RATED table",
       executables=[Executable("ChargeFileValidation.py", base=base)])
+
+# Command to execute on cmd prompt "python set.exe build"

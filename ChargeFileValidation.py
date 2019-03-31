@@ -32,15 +32,17 @@ def getConfigFile():
 #confFile="C:\Vara\AM&R\scripts\QA_Run\Vara.txt"
 
 def displayInfo():
-    print("################################################################################################")
-    print("## Thanks for using Charge file validation application, developed by Vara(Varaprakash Reddy). ##")
-    print("## This required config file (Ex: Vara.txt) as input parameter with following fields set      ##")
-    print("##                                                                                            ##")
-    print("##   BL_RATED = <Path to BL_RATED csv or xlsx file>                                           ##")
-    print("##   CHARGE_FILES_PAT = < path contains charges files generated from FW>                      ##")
-    print("##   OUTPUT_FILE = < Name of the Excel (xlsx) filename to produce results                     ##")
-    print("##   BILLING_SYS_INFO = < Billing System Info  Reference file from FRD>                       ##")
-    print("################################################################################################")
+    print("****************************************************************************")
+    print("## Thanks for using Charge file validation application, developed by      ##")
+    print("## Vara (Varaprakash Reddy).                                              ##")
+    print("## This requires config file (Ex: Vara.txt) as input parameter            ##")
+    print("## with following fields set:                                             ##")
+    print("##                                                                        ##")
+    print("##   BL_RATED = <Path to BL_RATED csv or xlsx file>                       ##")
+    print("##   CHARGE_FILES_PAT = <Path contains charges files generated from FW>   ##")
+    print("##   OUTPUT_FILE = <Name of the Excel (xlsx) filename to produce results> ##")
+    print("##   BILLING_SYS_INFO = <Billing System Info  Reference file from FRD>    ##")
+    print("****************************************************************************")
 
 displayInfo()
 getConfigFile()

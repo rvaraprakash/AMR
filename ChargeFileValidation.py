@@ -130,6 +130,8 @@ a_NYC_df = pd.DataFrame(columns=['FileName','Division','AccountNum','ChargeNumbe
                                  'CallType','Account_Flag','ServiceCode','Amount'])
 ##Header footer
 a_BHN_hf_df = pd.DataFrame(columns=['FileName','Actual_Header','Actual_HeaderAmount','Actual_Footer','Actual_FooterAmount'])
+a_NATIONAL_hf_df = pd.DataFrame(columns=['FILE_NAME','Actual_Header','Actual_HeaderAmount','Actual_Footer','Actual_FooterAmount'])
+a_ICOMS_hf_df = pd.DataFrame(columns=['FILE_NAME','Actual_Header','Actual_HeaderAmount','Actual_Footer','Actual_FooterAmount'])
 
 #### Division code
 ICOMS_DIV = ['CAR', 'CVG', 'MKC', 'CMH', 'NEW', 'CAK', 'HNL']
@@ -192,12 +194,12 @@ def parseRecords_BHN(file):
     for rec in recs:
         #print(rec)
         if re.findall(r"^H", rec):
-            print("Header:" + rec)
+            #print("Header:" + rec)
             l_header = rec.split(',')[0]
             l_hdrAmount = rec.split(',')[1]
-            print(a_BHN_df)
+            #print(a_BHN_df)
         elif re.findall(r"^F", rec):
-            print("Footer:" + rec)
+            #print("Footer:" + rec)
             l_footer = rec.split(',')[0]
             l_ftrAmount = rec.split(',')[1]
         else:
@@ -233,7 +235,7 @@ def parseRecords_BHN(file):
 def parseRecords_ICOMS(file):
     key = os.path.basename(file)
     recs = a_chargeFilesRecDict[key]
-    global a_ICOMS_df
+    global a_ICOMS_df, a_ICOMS_hf_df
     l_cdInd = list()
     l_accNum = list()
     l_chgrNum = list()
@@ -244,11 +246,11 @@ def parseRecords_ICOMS(file):
         if re.findall(r"^H", rec):
             #print("Header:" + rec)
             l_header = rec.split(',')[0]
-            l_hdrTotAmount = rec.split(',')[1]
+            l_hdrAmount = rec.split(',')[1]
         elif re.findall(r"^F", rec):
             #print("Footer:" + rec)
             l_footer = rec.split(',')[0]
-            l_ftrTotAmount = rec.split(',')[1]
+            l_ftrAmount = rec.split(',')[1]
         else:
             #print("Actual Record:" + rec)
             l_cdInd.append(rec.split(',')[0][:1])
@@ -266,14 +268,23 @@ def parseRecords_ICOMS(file):
     #print("icoms_dict:",icoms_dict)
     tmp1_df = pd.DataFrame.from_dict(icoms_dict)
     a_ICOMS_df = pd.concat([a_ICOMS_df, tmp1_df], sort=False)
-    #print("a_ICOMS_df:", a_ICOMS_df)
-    #print("a_ICOMS_df.AccountNum:", a_ICOMS_df['AccountNum'])
+
+    ICOMS_hf_dict = {'FILE_NAME': l_fileName,
+                   'Actual_Header': l_header,
+                   'Actual_HeaderAmount': l_hdrAmount,
+                   'Actual_Footer': l_footer,
+                   'Actual_FooterAmount': l_ftrAmount}
+    tmp_hf_df = pd.DataFrame.from_dict(ICOMS_hf_dict)
+    a_ICOMS_hf_df = pd.concat([a_ICOMS_hf_df, tmp_hf_df], sort=True)
+    a_ICOMS_hf_df.drop_duplicates(inplace=True)
+    a_ICOMS_hf_df['Actual_HeaderAmount'] = a_ICOMS_hf_df['Actual_HeaderAmount'].astype(np.int64)
+    a_ICOMS_hf_df['Actual_FooterAmount'] = a_ICOMS_hf_df['Actual_FooterAmount'].astype(np.int64)
 
 
 def parseRecords_NATIONAL(file):
     key = os.path.basename(file)
     recs = a_chargeFilesRecDict[key]
-    global a_NATIONAL_df
+    global a_NATIONAL_df, a_NATIONAL_hf_df
     l_cdInd = list()
     l_divCode = list()
     l_accNum = list()
@@ -285,11 +296,11 @@ def parseRecords_NATIONAL(file):
         if re.findall(r"^H", rec):
             #print("Header:" + rec)
             l_header = rec.split(',')[0]
-            l_hdrTotAmount = rec.split(',')[1]
+            l_hdrAmount = rec.split(',')[1].strip('\n')
         elif re.findall(r"^F", rec):
             #print("Footer:" + rec)
             l_footer = rec.split(',')[0]
-            l_ftrTotAmount = rec.split(',')[1]
+            l_ftrAmount = rec.split(',')[1].strip('\n')
         else:
             #print("Actual Record:" + rec)
             l_cdInd.append(rec.split(',')[0][:1])
@@ -309,8 +320,19 @@ def parseRecords_NATIONAL(file):
     #print("icoms_dict:",national_dict)
     tmp_df = pd.DataFrame.from_dict(national_dict)
     a_NATIONAL_df = pd.concat([a_NATIONAL_df, tmp_df], sort=False)
-    #print("a_NATIONAL_df:", a_NATIONAL_df)
-    #print("a_NATIONAL_df.AccountNum:", a_NATIONAL_df['AccountNum'])
+    ## Header footer dictionary
+    NATIONAL_hf_dict = {'FILE_NAME': l_fileName,
+                   'Actual_Header': l_header,
+                   'Actual_HeaderAmount': l_hdrAmount,
+                   'Actual_Footer': l_footer,
+                   'Actual_FooterAmount': l_ftrAmount}
+    tmp_hf_df = pd.DataFrame.from_dict(NATIONAL_hf_dict)
+    #print("NATIONAL_hf_dict:",NATIONAL_hf_dict)
+    a_NATIONAL_hf_df = pd.concat([a_NATIONAL_hf_df, tmp_hf_df], sort=True)
+    a_NATIONAL_hf_df.drop_duplicates(inplace=True)
+    a_NATIONAL_hf_df['Actual_HeaderAmount'] = a_NATIONAL_hf_df['Actual_HeaderAmount'].astype(np.int64)
+    a_NATIONAL_hf_df['Actual_FooterAmount'] = a_NATIONAL_hf_df['Actual_FooterAmount'].astype(np.int64)
+    #print("a_NATIONAL_hf_df:", a_NATIONAL_hf_df['Actual_HeaderAmount'])
 
 def parseRecords_CSG(file):
     key = os.path.basename(file)
@@ -958,7 +980,7 @@ def highlight_color(row):
 
 if 'a_recCount_df' in locals():
     sum_result_df = pd.merge(filesCount_df,a_recCount_df, how='outer', on=['ChargeFileName'])
-    print("sum_result_df", sum_result_df.columns)
+    #print("sum_result_df", sum_result_df.columns)
     #sum_result_df['Exp_RecordsCount'] = sum_result_df.Exp_RecordsCount.astype(str)
 
     #sum_result_df['Actual_Count'] = sum_result_df.Actual_Count.astype(int)
@@ -975,19 +997,19 @@ def getHeadFootData(biller, exp_df):
     agg_count_df = file_amount_df.groupby('FILE_NAME', as_index=False).count()
     agg_count_df.rename(columns={'Exp_AR_ROUNDED_PRICE':'Count'}, inplace=True)
     agg_hf_df = pd.merge(agg_amount_df, agg_count_df, how='outer', on=['FILE_NAME'])
+    agg_hf_df['BILLER'] = biller
     agg_hf_df['Exp_Header'] = "H" + agg_hf_df['Count'].astype(str)
     agg_hf_df['Exp_HeaderAmount'] = agg_hf_df['Exp_AR_ROUNDED_PRICE']
     agg_hf_df['Exp_Footer'] = "F" + agg_hf_df['Count'].astype(str)
     agg_hf_df['Exp_FooterAmount'] = agg_hf_df['Exp_AR_ROUNDED_PRICE']
     agg_hf_df.drop(['Count','Exp_AR_ROUNDED_PRICE'], axis=1, inplace=True)
-    agg_hf_df['BILLER'] = biller
-    print("agg_hf_df colm:",agg_hf_df.columns)
-    print("agg_hf_df:", agg_hf_df)
+    #print("agg_hf_df colm:",agg_hf_df.columns)
+    #print("agg_hf_df:", agg_hf_df)
     return agg_hf_df
 
 def compare_HF_Results(row):
-    print("row", row)
-    if row['BILLER'] == 'BHN':
+    #print("row", row)
+    if row['BILLER']:
         if ((row['Exp_Header'] == row['Actual_Header']) and
                 (row['Exp_HeaderAmount'] == row['Actual_HeaderAmount']) and
                 (row['Exp_Footer'] == row['Actual_Footer']) and
@@ -1014,8 +1036,8 @@ try :
         if biller == 'BHN':
             #print("Inside BHN..")
             BHN_df = pd.DataFrame()
-            exp_bhn_RefCol = ['BILLER', 'ACCOUNT_NUMBER', 'CHARGE_NUMBER', 'SERVICE_TYPE', 'ACCOUNT_TYPE', 'CALL_TYPE',
-                              'CREDIT_DEBIT_IND', 'CALL_COMP_CALL_TYPE','AR_ROUNDED_PRICE', 'CHG_FILENAME']
+            exp_bhn_RefCol = ['BILLER', 'CHG_FILENAME', 'ACCOUNT_NUMBER', 'CHARGE_NUMBER', 'SERVICE_TYPE', 'ACCOUNT_TYPE', 'CALL_TYPE',
+                              'CREDIT_DEBIT_IND', 'CALL_COMP_CALL_TYPE','AR_ROUNDED_PRICE' ]
             exp_bhn_df = res_df[res_df['BILLER'] == 'BHN']
             exp_bhn_df = exp_bhn_df.filter(exp_bhn_RefCol)
             exp_bhn_df['CALL_TYPE'] = exp_bhn_df.apply(getCallType_BHN, axis=1)
@@ -1029,6 +1051,7 @@ try :
                                        'AR_ROUNDED_PRICE': 'Exp_AR_ROUNDED_PRICE'}, inplace=True)
             ### Header footer
             exp_bhn_hf_df = getHeadFootData('BHN',exp_bhn_df)
+            exp_bhn_hf_df = exp_bhn_hf_df[['BILLER','FILE_NAME','Exp_Header','Exp_HeaderAmount','Exp_Footer','Exp_FooterAmount']]
             try:
                 if a_BHN_df.empty != True:
                     a_BHN_df['AccountNum'] = a_BHN_df.AccountNum.astype(np.int64)
@@ -1049,17 +1072,13 @@ try :
                                            'FileName': 'FILE_NAME',
                                            'Exp_AR_ROUNDED_PRICE': 'Exp_AMOUNT'}, inplace=True)
 
-                    print("exp_bhn_hf_df col:", exp_bhn_hf_df.columns)
-                    print("a_BHN_hf_df col:", a_BHN_hf_df.columns)
+
                     a_BHN_hf_df['FILE_NAME'] = a_BHN_hf_df.apply(lambda row: row.FileName[:11]+"xxxx.txt", axis=1)
-                    print("exp_bhn_hf_df col:", exp_bhn_hf_df.columns)
-                    print("a_BHN_hf_df col:", a_BHN_hf_df.columns)
-                    BHN_hf_df = pd.merge(exp_bhn_hf_df, a_BHN_hf_df, on='FILE_NAME')
+                    BHN_hf_df = pd.merge(exp_bhn_hf_df, a_BHN_hf_df, how='outer', on='FILE_NAME')
                     BHN_hf_df.drop('FILE_NAME', axis=1, inplace=True)
                     BHN_hf_df = BHN_hf_df[['BILLER', 'FileName', 'Exp_Header', 'Actual_Header', 'Exp_HeaderAmount', 'Actual_HeaderAmount',
                                         'Exp_Footer', 'Actual_Footer','Exp_FooterAmount', 'Actual_FooterAmount']]
                     BHN_hf_df['Result'] = BHN_hf_df.apply(compare_HF_Results, axis=1)
-                    #BHN_hf_df.to_excel(writer, 'BHN_HF_DF', index=False, freeze_panes=(1, 0))
 
                 else:
                     BHN_df = exp_bhn_df
@@ -1114,10 +1133,9 @@ try :
                     CSG_NYC_df = pd.merge(exp_csg_nyc_df,a_NYC_df, how='outer', on=['ACCOUNT_NUMBER', 'CHARGE_NUMBER','FILE_NAME'])
                     #print("Colmn:", CSG_NYC_df.columns)
                     CSG_NYC_df['Result'] = CSG_NYC_df.apply(compareResults, axis=1)
-                    CSG_NYC_df = CSG_NYC_df[['BILLER','ACCOUNT_NUMBER','CHARGE_NUMBER','Exp_CALL_TYPE','CallType',
+                    CSG_NYC_df = CSG_NYC_df[['BILLER','FILE_NAME', 'ACCOUNT_NUMBER','CHARGE_NUMBER','Exp_CALL_TYPE','CallType',
                                              'Exp_AR_ROUNDED_PRICE','Amount', 'Exp_DIVISION_CODE', 'Division',
-                                             'Exp_ACCOUNT_FLAG','Account_Flag', 'Exp_SERVICE_CODE','ServiceCode',
-                                             'FILE_NAME','Result']]
+                                             'Exp_ACCOUNT_FLAG','Account_Flag', 'Exp_SERVICE_CODE','ServiceCode','Result']]
                     CSG_NYC_df.rename(columns={'Amount': 'Actual_AMOUNT',
                                                'CallType': 'Actual_CALL_TYPE',
                                                'Exp_DIVISION_CODE': 'Exp_DIVISION',
@@ -1169,9 +1187,8 @@ try :
                     CSG_df = pd.merge(exp_csg_df, a_CSG_df, how='outer', on=['ACCOUNT_NUMBER', 'CHARGE_NUMBER','FILE_NAME'])
                     #print("Colmn:", CSG_df.columns)
                     CSG_df['Result'] = CSG_df.apply(compareResults, axis=1)
-                    CSG_df = CSG_df[['BILLER', 'ACCOUNT_NUMBER', 'CHARGE_NUMBER', 'Exp_ACCOUNT_TYPE', 'AccType',
-                                     'Exp_CALL_TYPE', 'CallType', 'Exp_AR_ROUNDED_PRICE', 'Amount', 'FILE_NAME',
-                                     'Result']]
+                    CSG_df = CSG_df[['BILLER', 'FILE_NAME', 'ACCOUNT_NUMBER', 'CHARGE_NUMBER', 'Exp_ACCOUNT_TYPE', 'AccType',
+                                     'Exp_CALL_TYPE', 'CallType', 'Exp_AR_ROUNDED_PRICE', 'Amount', 'Result']]
                     CSG_df.rename(columns={'Amount': 'Actual_AMOUNT',
                                                'AccType': 'Actual_ACCOUNT_TYPE',
                                                'CallType': 'Actual_ALL_TYPE',
@@ -1207,6 +1224,10 @@ try :
                                             'CHG_FILENAME': 'FILE_NAME',
                                             'AR_ROUNDED_PRICE': 'Exp_AR_ROUNDED_PRICE'}, inplace=True)
             # exp_national_df.drop('CALL_TYPE',axis=1, inplace=True)
+            ### Header footer
+            exp_national_hf_df = getHeadFootData('NATIONAL', exp_national_df)
+            exp_national_hf_df = exp_national_hf_df[
+                ['BILLER', 'FILE_NAME', 'Exp_Header', 'Exp_HeaderAmount', 'Exp_Footer', 'Exp_FooterAmount']]
 
             try:
                 if a_NATIONAL_df.empty != True:
@@ -1223,15 +1244,22 @@ try :
                     NATIONAL_df = pd.merge(exp_national_df, a_NATIONAL_df, how='outer', on=['ACCOUNT_NUMBER', 'CHARGE_NUMBER','FILE_NAME'])
                     NATIONAL_df['Result'] = NATIONAL_df.apply(compareResults, axis=1)
                     #print("NATIONAL_df Colmn:", NATIONAL_df.columns)
-                    NATIONAL_df = NATIONAL_df[['BILLER', 'ACCOUNT_NUMBER', 'CHARGE_NUMBER', 'Exp_DIVISION_CODE', 'DivisionCode', 'Exp_CREDIT_DEBIT_IND', 'CreditDebitInd',
-                         'Exp_AR_ROUNDED_PRICE', 'Amount', 'FILE_NAME', 'Result']]
+                    NATIONAL_df = NATIONAL_df[['BILLER', 'FILE_NAME', 'ACCOUNT_NUMBER', 'CHARGE_NUMBER', 'Exp_DIVISION_CODE', 'DivisionCode', 'Exp_CREDIT_DEBIT_IND', 'CreditDebitInd',
+                         'Exp_AR_ROUNDED_PRICE', 'Amount', 'Result']]
 
                     NATIONAL_df.rename(columns={'Amount': 'Actual_AMOUNT',
                                                'DivisionCode': 'Actual_DIVISION_CODE',
                                                'CreditDebitInd': 'Actual_CREDIT_DEBIT_IND',
                                                'Exp_AR_ROUNDED_PRICE': 'Exp_AMOUNT'}, inplace=True)
+
+                    NATIONAL_hf_df = pd.merge(exp_national_hf_df, a_NATIONAL_hf_df, how='outer', on='FILE_NAME')
+                    NATIONAL_hf_df = NATIONAL_hf_df[
+                        ['BILLER', 'FILE_NAME', 'Exp_Header', 'Actual_Header', 'Exp_HeaderAmount', 'Actual_HeaderAmount',
+                         'Exp_Footer', 'Actual_Footer', 'Exp_FooterAmount', 'Actual_FooterAmount']]
+                    NATIONAL_hf_df['Result'] = NATIONAL_hf_df.apply(compare_HF_Results, axis=1)
                 else:
                     NATIONAL_df = exp_national_df
+                    NATIONAL_hf_df = exp_national_hf_df
             except AttributeError:
                 pass
             if (len(NATIONAL_df) > 1):
@@ -1241,6 +1269,14 @@ try :
                     NATIONAL_df.style.apply(highlight_color, subset=pd.IndexSlice[:, ['Result']]).to_excel(writer, 'NATIONAL', index=False, freeze_panes=(1,0))
                 else:
                     NATIONAL_df.to_excel(writer, 'NATIONAL', index=False, freeze_panes=(1,0))
+                ## Write Header/Footer results
+                startLine = len(NATIONAL_df.index) + 3
+                if 'Result' in NATIONAL_hf_df.columns:
+                    NATIONAL_hf_df.style.apply(highlight_color, subset=pd.IndexSlice[:, ['Result']]).to_excel(writer, 'NATIONAL',
+                                                                                                         startrow=startLine,
+                                                                                                         index=False)
+                else:
+                    NATIONAL_hf_df.to_excel(writer, 'NATIONAL', startrow=startLine, index=False)
 
         ### ICOMS
         if biller == 'ICOMS':
@@ -1258,6 +1294,10 @@ try :
                                          'CHG_FILENAME': 'FILE_NAME',
                                          'AR_ROUNDED_PRICE': 'Exp_AR_ROUNDED_PRICE'}, inplace=True)
             # exp_bhn_df.drop('CALL_TYPE',axis=1, inplace=True)
+            ### Header footer
+            exp_icoms_hf_df = getHeadFootData('ICOMS', exp_icoms_df)
+            exp_icoms_hf_df = exp_icoms_hf_df[
+                ['BILLER', 'FILE_NAME', 'Exp_Header', 'Exp_HeaderAmount', 'Exp_Footer', 'Exp_FooterAmount']]
 
             try:
                 if a_ICOMS_df.empty != True:
@@ -1272,14 +1312,21 @@ try :
                     a_ICOMS_df['Amount'] = a_ICOMS_df.Amount.astype(np.int64)
                     ICOMS_df = pd.merge(exp_icoms_df, a_ICOMS_df, how='outer', on=['ACCOUNT_NUMBER', 'CHARGE_NUMBER', 'FILE_NAME'])
                     ICOMS_df['Result'] = ICOMS_df.apply(compareResults, axis=1)
-                    ICOMS_df = ICOMS_df[['BILLER','ACCOUNT_NUMBER','CHARGE_NUMBER','Exp_CREDIT_DEBIT_IND','CreditDebitInd',
-                                         'Exp_AR_ROUNDED_PRICE','Amount','FILE_NAME','Result']]
+                    ICOMS_df = ICOMS_df[['BILLER','FILE_NAME', 'ACCOUNT_NUMBER','CHARGE_NUMBER','Exp_CREDIT_DEBIT_IND','CreditDebitInd',
+                                         'Exp_AR_ROUNDED_PRICE','Amount','Result']]
 
                     ICOMS_df.rename(columns={'Amount': 'Actual_AMOUNT',
                                                'CreditDebitInd': 'Actual_CREDIT_DEBIT_IND',
                                                'Exp_AR_ROUNDED_PRICE': 'Exp_AMOUNT'}, inplace=True)
+
+                    ICOMS_hf_df = pd.merge(exp_icoms_hf_df, a_ICOMS_hf_df, how='outer', on='FILE_NAME')
+                    ICOMS_hf_df = ICOMS_hf_df[
+                        ['BILLER', 'FILE_NAME', 'Exp_Header', 'Actual_Header', 'Exp_HeaderAmount', 'Actual_HeaderAmount',
+                         'Exp_Footer', 'Actual_Footer', 'Exp_FooterAmount', 'Actual_FooterAmount']]
+                    ICOMS_hf_df['Result'] = ICOMS_hf_df.apply(compare_HF_Results, axis=1)
                 else:
                     ICOMS_df = exp_icoms_df
+                    ICOMS_hf_df = exp_icoms_hf_df
             except AttributeError:
                 pass
             if (len(ICOMS_df) > 1):
@@ -1289,6 +1336,15 @@ try :
                     ICOMS_df.style.apply(highlight_color, subset=pd.IndexSlice[:, ['Result']]).to_excel(writer, 'ICOMS', index=False, freeze_panes=(1,0))
                 else:
                     ICOMS_df.to_excel(writer, 'ICOMS', index=False, freeze_panes=(1, 0))
+
+                ## Write Header/Footer results
+                startLine = len(ICOMS_df.index) + 3
+                if 'Result' in ICOMS_hf_df.columns:
+                    ICOMS_hf_df.style.apply(highlight_color, subset=pd.IndexSlice[:, ['Result']]).to_excel(writer, 'ICOMS',
+                                                                                                         startrow=startLine,
+                                                                                                         index=False)
+                else:
+                    ICOMS_hf_df.to_excel(writer, 'ICOMS', startrow=startLine, index=False)
 
 except PermissionError as e:
     print("\nERROR:", e)
@@ -1307,7 +1363,6 @@ finally:
     res_df['ACCOUNT_NUMBER'] = res_df.ACCOUNT_NUMBER.astype(str)
     res_df['CHARGE_NUMBER'] = res_df.CHARGE_NUMBER.astype(str)
     res_df.to_excel(writer, 'Aggr_Records', index=False, freeze_panes=(1,0))
-    a_BHN_hf_df.to_excel(writer, 'BHN_HeaderFooter', index=False, freeze_panes=(1,0))
     writer.save()
 
 print("\nOutputfile:" + OUTPUT_FILE)

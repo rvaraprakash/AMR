@@ -124,6 +124,7 @@ a_chargeFilesRecSpltDict = {}
 
 a_BHN_df = pd.DataFrame(columns=['FileName','AccountNum','ChargeNumber','Amount','CallType','Service'])
 a_CSG_df = pd.DataFrame(columns=['FileName','AccountNum','ChargeNumber','Amount','CallType','AccType'])
+a_CSG_JOB_df = pd.DataFrame(columns=['FILE_NAME','Actual_datFileName','Actual_TotalAmount','Actual_Total_Recs_Count'])
 a_ICOMS_df = pd.DataFrame(columns=['FileName','CreditDebitInd','AccountNum','ChargeNumber','Amount'])
 a_NATIONAL_df = pd.DataFrame(columns=['FileName','CreditDebitInd','DivisionCode','AccountNum','ChargeNumber','Amount'])
 a_NYC_df = pd.DataFrame(columns=['FileName','Division','AccountNum','ChargeNumber','DialedDigit',
@@ -157,9 +158,9 @@ NYC_RES_DF_FILTER_KEYS = ['BILLER', 'FINANCE_ENTITY','ACCOUNT_NUMBER','CHARGE_NU
 try:
     if CHARGE_FILES_PATH is not None:
         a_chargeFilesList = [f for f in listdir(CHARGE_FILES_PATH) if isfile(join(CHARGE_FILES_PATH, f))]
-        for file in a_chargeFilesList:
-            if file[-3:] == 'job':
-                a_chargeFilesList.remove(file)
+        #for file in a_chargeFilesList:
+            #if file[-3:] == 'job':
+             #   a_chargeFilesList.remove(file)
         print("CHARGE_FILES",a_chargeFilesList)
 except NameError:
     print("CHARGE_FILES_PATH not defined")
@@ -168,9 +169,9 @@ except NameError:
 #### Functions to read content of charge files
 def addToMap(file):
     #print("Reading file:", file)
-    if file[-3:] == 'job':
-        print("Skipping file:", file)
-    else:
+    #if file[-3:] == 'job':
+    #    print("Skipping file:", file)
+    #else:
         fh = open(file)
         lines = [line for line in fh.readlines() if line.strip('\n')]
         fh.close()
@@ -375,6 +376,28 @@ def parseRecords_CSG(file):
     a_CSG_df = pd.concat([a_CSG_df, tmp_df], sort=False)
     #print("a_CSG_df:", a_CSG_df)
 
+def parseRecords_CSG_JOB(file):
+    key = os.path.basename(file)
+    recs = a_chargeFilesRecDict[key]
+    global a_CSG_JOB_df
+    l_fileName = key
+    l_datFileName = recs[0].strip('\n')
+    l_amount = recs[1].strip('\n')
+    l_recCount = recs[2].strip('\n')
+
+    ### From Dict
+    csg_job_dict = {'BILLER': 'CSG',
+                    'FILE_NAME': l_fileName,
+                    'Actual_datFileName': l_datFileName,
+                    'Actual_TotalAmount': l_amount,
+                    'Actual_Total_Recs_Count': l_recCount}
+
+    tmp_df = pd.DataFrame.from_records(csg_job_dict, index=[0])
+    a_CSG_JOB_df = pd.concat([a_CSG_JOB_df, tmp_df], sort=False)
+    a_CSG_JOB_df.Actual_Total_Recs_Count = a_CSG_JOB_df.Actual_Total_Recs_Count.astype(np.int64)
+    #print("a_CSG_JOB_df:", a_CSG_JOB_df)
+
+
 def parseRecords_NYC(file):
     key = os.path.basename(file)
     if (key.split('.')[1] == 'job'):
@@ -458,7 +481,11 @@ def parseFile_NATIONAL(file):
 def parseFile_CSG(file):
     #print ("Parsing CSG file:" + file)
     addToMap(file)
-    parseRecords_CSG(file)
+    #parseRecords_CSG(file)
+    if (file[-3:] == "dat"):
+        parseRecords_CSG(file)
+    if (file[-3:] == "job"):
+        parseRecords_CSG_JOB(file)
     key = os.path.basename(file)
     recCount = int(str(len(a_chargeFilesRecDict[key])))
     #print(key + ":" + recCount)
@@ -491,6 +518,10 @@ for file in a_chargeFilesList:
         #print ("CSG file:" + file)
         file=CHARGE_FILES_PATH + "/" + file
         parseFile_CSG(file)
+      #  if (file[-3:] == "dat"):
+      #      parseFile_CSG(file)
+       # if (file[-3:] == "job"):
+        #    parseFile_CSG_JOB(file)
     elif (re.search(r"^twnyc", file)):
         #print ("NYC file:" + file)
         file=CHARGE_FILES_PATH + "/" + file
@@ -793,6 +824,24 @@ def compareResults(row):
             return "PASS"
         else:
             return "FAIL"
+
+def getCSGJobFileData(biller, exp_df):
+    #print("exp_df col:", exp_df.columns)
+    file_amount_df = exp_df.filter(['CHG_FILENAME','AR_ROUNDED_PRICE'])
+    file_amount_df['AR_ROUNDED_PRICE'] = file_amount_df['AR_ROUNDED_PRICE'].astype(np.int64)
+    agg_amount_df = file_amount_df.groupby('CHG_FILENAME', as_index=False)['AR_ROUNDED_PRICE'].sum()
+    agg_count_df = file_amount_df.groupby('CHG_FILENAME', as_index=False).count()
+    agg_count_df.rename(columns={'AR_ROUNDED_PRICE':'Exp_Total_Recs_Count'}, inplace=True)
+    agg_hf_df = pd.merge(agg_amount_df, agg_count_df, how='outer', on=['CHG_FILENAME'])
+    agg_hf_df['BILLER'] = biller
+    agg_hf_df['Exp_datFileName'] = agg_hf_df['CHG_FILENAME']
+    agg_hf_df['Exp_TotalAmount'] = agg_hf_df['AR_ROUNDED_PRICE']
+    agg_hf_df['FILE_NAME'] = agg_hf_df['CHG_FILENAME'].apply(lambda file: file[:-3] + "job")
+    #agg_hf_df.drop('CHG_FILENAME', axis=1, inplace=True)
+    #print("agg_hf_df colm:",agg_hf_df.columns)
+    #print("agg_hf_df:", agg_hf_df)
+    return agg_hf_df
+
 #### PRI Accounts
 priAcc_df = clean_df[clean_df['DIVISION_CODE'].isin(PRI_DIV) & clean_df['ACCOUNT_TYPE'].isin(['C', 'T']) &
                      clean_df['SERVICE_TYPE'].isin(['T'])]
@@ -835,6 +884,7 @@ if (len(bcpAcc_df)):
     #print(bcpAcc_df)
 
 
+
 #### Trunksum_Accounts
 trksumAcc_df = clean_df[clean_df['DIVISION_CODE'].isin(TRKSM_DIV) & clean_df['ACCOUNT_TYPE'].isin(['C', 'T'])
                         & clean_df['SERVICE_TYPE'].isin(['T'])]
@@ -847,6 +897,12 @@ if (len(trksumAcc_df)):
     trksumAcc_df.drop(['fileTime'], axis=1, inplace=True)
     trksumAcc_df['BILLER'] = "CSG"
     #print(trksumAcc_df)
+   # trksumAcc_df['CHG_FILENAME'] = trksumAcc_df.apply(createFile_CSG, axis=1)
+
+    ### Trunksum job fiie
+    #trksumAcc_job_df = getCSGJobFileData('CSG', trksumAcc_df)
+    #print("trksumAcc_job_df:", trksumAcc_job_df)
+
 
 #### Primsum_Accounts
 primsumAcc_df = clean_df[clean_df['DIVISION_CODE'].isin(PRISM_DIV) & clean_df['ACCOUNT_TYPE'].isin(['R', 'C'])
@@ -926,7 +982,8 @@ if (len(bhnComAcc_df)):
     #print(bhnComAcc_df)
 
 ### Combine all DF's
-frames = [priAcc_df, resAcc_df, bcpAcc_df, trksumAcc_df, primsumAcc_df, primdetAcc_df, npriAcc_df, nbcpAcc_df, bhnResAcc_df, bhnComAcc_df]
+frames = [priAcc_df, resAcc_df, bcpAcc_df, trksumAcc_df, primsumAcc_df, primdetAcc_df, npriAcc_df, nbcpAcc_df,
+          bhnResAcc_df, bhnComAcc_df]
 all_df=pd.DataFrame()
 
 for frame in frames:
@@ -956,10 +1013,18 @@ res_df = res_df[RES_DF_FILTER_KEYS]
 res_df = res_df[res_df['BILLER'] != 'CSG_NYC']
 res_df = pd.concat([res_df,res_nyc_df])
 
+### Build CSG Job file
+trksumAcc_job_df = getCSGJobFileData('CSG', trksumAcc_df)
+primsumAcc_job_df = getCSGJobFileData('CSG', primsumAcc_df)
+exp_csg_job_df = pd.concat([trksumAcc_job_df, primsumAcc_job_df])
+jobFilesCount_df = exp_csg_job_df.filter(['BILLER','FILE_NAME'])
+jobFilesCount_df.rename(columns={'FILE_NAME':'ChargeFileName'}, inplace=True)
+jobFilesCount_df['Exp_RecordsCount'] = 3
+
 filesCount_df = res_df.groupby(['BILLER','CHG_FILENAME']).count()['AR_ROUNDED_PRICE'].astype(int)
 filesCount_df = filesCount_df.to_frame().reset_index()
 filesCount_df.columns = ['BILLER','ChargeFileName', 'Exp_RecordsCount']
-
+filesCount_df = pd.concat([filesCount_df, jobFilesCount_df], ignore_index=True,  sort=True)
 
 
 
@@ -1007,6 +1072,7 @@ def getHeadFootData(biller, exp_df):
     #print("agg_hf_df:", agg_hf_df)
     return agg_hf_df
 
+
 def compare_HF_Results(row):
     #print("row", row)
     if row['BILLER']:
@@ -1018,6 +1084,14 @@ def compare_HF_Results(row):
         else:
             return "FAIL"
 
+def compare_JOB_Results(row):
+    #print("row", row)
+    if row['BILLER']:
+        if ((row['Exp_datFileName'] == row['Actual_datFileName']) and
+                (row['Exp_Total_Recs_Count'] == row['Actual_Total_Recs_Count'])):
+            return "PASS"
+        else:
+            return "FAIL"
 
 try :
     writer = pd.ExcelWriter(OUTPUT_FILE, engine='xlsxwriter')
@@ -1193,8 +1267,14 @@ try :
                                                'AccType': 'Actual_ACCOUNT_TYPE',
                                                'CallType': 'Actual_ALL_TYPE',
                                                'Exp_AR_ROUNDED_PRICE': 'Exp_AMOUNT'}, inplace=True)
+                    CSG_JOB_df = pd.merge(exp_csg_job_df, a_CSG_JOB_df, how='outer', on=['BILLER','FILE_NAME'])
+                    CSG_JOB_df = CSG_JOB_df[
+                        ['BILLER', 'FILE_NAME', 'Exp_datFileName', 'Actual_datFileName',
+                         'Exp_Total_Recs_Count', 'Actual_Total_Recs_Count']]
+                    CSG_JOB_df['Result'] = CSG_JOB_df.apply(compare_JOB_Results, axis=1)
                 else:
                     CSG_df = exp_csg_df
+                    CSG_JOB_df = exp_csg_job_df
             except AttributeError:
                 pass
             if (len(CSG_df) > 1):
@@ -1204,6 +1284,14 @@ try :
                     CSG_df.style.apply(highlight_color, subset=pd.IndexSlice[:, ['Result']]).to_excel(writer, 'CSG', index=False, freeze_panes=(1,0))
                 else:
                     CSG_df.to_excel(writer, 'CSG', index=False, freeze_panes=(1,0))
+
+                startLine = len(CSG_df.index) + 3
+                if 'Result' in CSG_JOB_df.columns:
+                    CSG_JOB_df.style.apply(highlight_color, subset=pd.IndexSlice[:, ['Result']]).to_excel(writer, 'CSG',
+                                                                                                         startrow=startLine,
+                                                                                                         index=False)
+                else:
+                    CSG_JOB_df.to_excel(writer, 'CSG', startrow=startLine, index=False)
 
 
         ### National
